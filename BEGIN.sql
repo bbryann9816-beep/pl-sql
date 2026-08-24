@@ -1046,6 +1046,9 @@ END listar_operadores_ordenes;
 /
 EXEC listar_operadores_ordenes (4);
 
+---trigger
+---consulta
+
 
 
 
