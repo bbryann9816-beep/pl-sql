@@ -390,7 +390,7 @@ BEGIN
     FROM    operadores
     WHERE   id_operador = 1;
 
-    DBMS_OUTPUT.PUT_LINE('Operador: '|| v_nombre)
+    DBMS_OUTPUT.PUT_LINE('Operador: '|| v_nombre);
 END;
 /        
 
@@ -669,6 +669,389 @@ FROM dual;
 
 SELECT obtener_nombre_operador(99)
 FROM dual;
+
+
+--Crea un PACKAGE llamado:
+--"pkg_operadores"
+--SPEC debe tener:
+--PROCEDURE: buscar_operador
+--FUNCTION: obtener_nombre
+--BODY debe tener: El código de cada uno
+CREATE OR REPLACE PACKAGE
+  pkg_operadores
+IS
+  PROCEDURE buscar_operador
+    (p_id IN NUMBER);
+
+  FUNCTION obtener_nombre
+    (p_id IN NUMBER)
+    RETURN VARCHAR2;
+
+END pkg_operadores;
+/
+
+
+CREATE OR REPLACE PACKAGE BODY
+  pkg_operadores
+IS
+  PROCEDURE buscar_operador
+    (p_id IN NUMBER)
+  IS
+    v_nombre VARCHAR2(50);
+  BEGIN
+    SELECT nombre
+    INTO   v_nombre
+    FROM   operadores
+    WHERE  id_operador = p_id;
+
+    DBMS_OUTPUT.PUT_LINE(
+      'Operador: ' || v_nombre);
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      DBMS_OUTPUT.PUT_LINE(
+        'No existe!');
+  END buscar_operador;
+
+  FUNCTION obtener_nombre
+    (p_id IN NUMBER)
+    RETURN VARCHAR2
+  IS
+    v_nombre VARCHAR2(50);
+  BEGIN
+    SELECT nombre
+    INTO   v_nombre
+    FROM   operadores
+    WHERE  id_operador = p_id;
+
+    RETURN v_nombre;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      RETURN 'NO EXISTE';
+  END obtener_nombre;
+
+END pkg_operadores;
+/
+
+-- PROCEDURE:
+EXEC pkg_operadores.buscar_operador(1);
+
+-- FUNCTION:
+SELECT pkg_operadores.obtener_nombre(1)
+FROM dual;
+
+
+
+--Crea un PACKAGE llamado: "pkg_ordenes"
+--SPEC debe tener:
+--→ 1 PROCEDURE:
+--registrar_orden
+--(p_id IN NUMBER)
+--→ 1 FUNCTION:
+--contar_ordenes
+--(p_id IN NUMBER)
+--RETURN NUMBER
+--BODY debe tener:
+--PROCEDURE registrar_orden:
+--→ Busca el nombre del
+--operador con SELECT INTO
+--→ Imprime:
+--"Orden registrada para: (nombre)"
+--→ EXCEPTION para
+--NO_DATA_FOUND
+
+--FUNCTION contar_ordenes:
+--→ Cuenta cuántas órdenes
+--tiene ese operador
+--con SELECT COUNT(*)
+--INTO variable
+--→ Retorna ese número
+--→ EXCEPTION retorna 0
+CREATE OR REPLACE PACKAGE
+  pkg_ordenes
+IS
+  PROCEDURE registrar_orden
+    (p_id IN NUMBER);
+
+  FUNCTION contar_ordenes
+    (p_id IN NUMBER)
+    RETURN VARCHAR2;
+
+END pkg_ordenes;
+/
+
+CREATE OR REPLACE PACKAGE BODY
+  pkg_ordenes
+IS
+  PROCEDURE registrar_orden
+    (p_id IN NUMBER)
+  IS
+    v_nombre VARCHAR2(50);
+  BEGIN
+    SELECT nombre
+    INTO   v_nombre
+    FROM   operadores
+    WHERE  id_operador = p_id;
+
+    DBMS_OUTPUT.PUT_LINE(
+      'Operador: ' || v_nombre);
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      DBMS_OUTPUT.PUT_LINE(
+        'No existe!');
+  END registrar_orden;
+
+  FUNCTION contar_ordenes
+    (p_id IN NUMBER)
+    RETURN VARCHAR2
+  IS
+    v_total NUMBER;
+  BEGIN
+    SELECT COUNT(*)
+    INTO   v_total
+    FROM   ordenes_trabajo
+    WHERE  id_operador = p_id;
+
+    RETURN v_total;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      RETURN 0;
+  END contar_ordenes;
+
+END pkg_ordenes;
+/
+
+EXEC pkg_ordenes.registrar_orden();
+
+SELECT pkg_ordenes.contar_ordenes(1)
+FROM dual;
+
+
+--Crea un PACKAGE llamado: "pkg_reporte" Debe tener 2 PROCEDURES y 1 FUNCTION:
+--1️⃣ PROCEDURE: ver_operador Recibe p_id Busca el nombre Si es 'Maria': imprime "Jefa: Maria" Si no: imprime "Operador: (nombre)"
+--Luego con FOR LOOP + JOIN imprime todas las órdenes de ESE operador EXCEPTION: no existe
+--2️⃣ PROCEDURE: listar_todos Sin parámetros FOR LOOP que recorra TODOS los operadores (sin WHERE) Imprime cada nombre
+--3️⃣ FUNCTION: total_ordenes Recibe p_id Retorna NUMBER con COUNT(*) de las órdenes de ese operador Si no existe: retorna 0
+
+CREATE OR REPLACE PACKAGE
+  pkg_reporte
+IS
+PROCEDURE ver_operador (p_id IN NUMBER);
+PROCEDURE listar_todos;
+FUNCTION total_ordenes (p_id IN NUMBER) RETURN NUMBER;
+END pkg_reporte;
+/
+
+CREATE OR REPLACE PACKAGE BODY
+pkg_reporte
+IS
+PROCEDURE ver_operador (p_id IN NUMBER) IS v_nombre VARCHAR2(50);
+
+BEGIN
+  SELECT    nombre
+  INTO      v_nombre
+  FROM      operadores
+  WHERE     id_operador = p_id;
+
+
+      IF v_nombre = 'Maria' THEN
+        DBMS_OUTPUT.PUT_LINE('Jefe: Maria');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Operador: ' || v_nombre);
+    END IF; 
+
+  FOR reg in (
+                SELECT  op.nombre,
+                ot.id_orden
+        FROM    operadores op
+        JOIN    ordenes_trabajo ot ON ot.id_operador = op.id_operador
+        WHERE   op.id_operador = p_id   
+  )LOOP
+        DBMS_OUTPUT.PUT_LINE('Orden: ' || reg.id_orden);
+    END LOOP;
+
+EXCEPTION
+      WHEN NO_DATA_FOUND THEN DBMS_OUTPUT.PUT_LINE('No existe!');
+  END ver_operador;
+
+PROCEDURE listar_todos
+IS
+BEGIN
+FOR reg IN(
+  SELECT    nombre
+  FROM      operadores) LOOP
+
+DBMS_OUTPUT.PUT_LINE('Operador: ' || reg.nombre);
+
+END LOOP;
+  END listar_todos;
+
+FUNCTION total_ordenes (p_id IN NUMBER) RETURN NUMBER IS v_total NUMBER;
+
+BEGIN
+    SELECT COUNT(*)
+    INTO   v_total
+    FROM   ordenes_trabajo
+    WHERE  id_operador = p_id;
+
+    RETURN v_total;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      RETURN 0;
+  END total_ordenes;    
+
+END pkg_reporte;
+/  
+
+EXEC pkg_reporte.ver_operador(1);
+EXEC pkg_reporte.listar_todos;
+SELECT pkg_reporte.total_ordenes(1) FROM dual;
+
+
+--Crea un bloque PL/SQL con un CURSOR EXPLÍCITO
+--llamado c_ordenes que:
+--→ Traiga id_orden y id_operador de ordenes_trabajo
+--→ Recorra todas las filas 
+--→ Imprima cada orden así: "Orden: 1 - Operador: 3" → Cierre el cursor al final
+DECLARE
+CURSOR c_ordenes IS 
+  SELECT  id_orden, id_operador
+  FROM    ordenes_trabajo;
+v_id_orden         NUMBER;
+v_id_operador      NUMBER;
+
+BEGIN
+    OPEN c_ordenes;
+
+  LOOP
+    FETCH   c_ordenes
+    INTO    v_id_orden, v_id_operador;
+
+    EXIT WHEN c_ordenes%NOTFOUND;
+
+    DBMS_OUTPUT.PUT_LINE('Orden: ' || v_id_orden || ' - Operador: ' || v_id_operador);
+
+  END LOOP;
+
+  CLOSE c_ordenes;
+
+  END;
+  /
+
+--Crea un PROCEDURE llamado: "ver_ordenes_operador" Que reciba p_id NUMBER Dentro use un CURSOR
+--CON PARÁMETRO que: → Traiga las órdenes de ese operador → Use FOR con cursor explícito → Imprima cada orden → Si no hay órdenes imprima "Sin órdenes"  
+CREATE OR REPLACE PROCEDURE
+  ver_ordenes_operador
+  (p_id IN NUMBER)
+IS
+  CURSOR c_ordenes
+    (p_id_param NUMBER) IS
+    SELECT id_orden, id_operador
+    FROM   ordenes_trabajo
+    WHERE  id_operador = p_id_param;
+
+  v_contador NUMBER := 0;
+
+BEGIN
+  FOR reg IN c_ordenes(p_id) LOOP
+    DBMS_OUTPUT.PUT_LINE(
+      'Orden: ' || reg.id_orden ||
+      ' - Operador: ' || reg.id_operador);
+    v_contador := v_contador + 1;
+  END LOOP;
+
+  IF v_contador = 0 THEN
+    DBMS_OUTPUT.PUT_LINE(
+      'Sin ordenes!');
+  END IF;
+
+END ver_ordenes_operador;
+/
+
+-- Con operador que tiene órdenes:
+EXEC ver_ordenes_operador(1);
+
+-- Con operador sin órdenes:
+EXEC ver_ordenes_operador(99);
+
+
+
+--Crea un PROCEDURE llamado: ver_ordenes_operador_2, debe recibir: p_id IN NUMBER 
+-- Debe hacer esto: 1. buscar todas las ordenes de operador recibido. 2. usar un cursor explicito con parametro. 3. usar FOR reg cursor(p_id) LOOP. 
+--4 implimir: orden: 1 orden:2 ....
+--si no tiene ordenes, imprimir: sin ordenes para este operador
+CREATE OR REPLACE PROCEDURE
+  ver_ordenes_operador_2 (p_id IN NUMBER)
+ IS
+ CURSOR c_ordenes (p_id_param NUMBER) IS
+    SELECT  id_orden, id_operador
+    FROM    ordenes_trabajo
+    WHERE   id_operador = p_id_param;
+
+v_contador NUMBER := 0;
+
+BEGIN
+
+  FOR reg IN c_ordenes(p_id) LOOP
+
+    DBMS_OUTPUT.PUT_LINE(
+      'Operador: '|| reg.id_operador ||
+      ' - Orden: ' || reg.id_orden);
+
+    v_contador := v_contador + 1;
+
+  END LOOP;
+
+  IF v_contador = 0 THEN
+    DBMS_OUTPUT.PUT_LINE(
+      'Sin ordenes para este operador');
+  END IF;
+
+END ver_ordenes_operador_2;
+/
+
+EXEC ver_ordenes_operador_2(1);
+EXEC ver_ordenes_operador_2(4);
+
+--Crear PROCEDURE: listar_operadores_ordenes, donde se debe visualizar el nombre del operador y su orden. usa un join en el cursor
+CREATE OR REPLACE PROCEDURE
+listar_operadores_ordenes (p_id IN NUMBER)
+IS
+CURSOR c_listar (p_id_param IN NUMBER) 
+IS
+SELECT  op.nombre, ot.id_orden
+FROM    operadores op
+JOIN    ordenes_trabajo ot ON ot.id_operador = op.id_operador
+WHERE   op.id_operador = p_id_param;
+
+v_contador NUMBER := 0;
+
+BEGIN
+
+  FOR reg IN c_listar(p_id) LOOP
+
+    DBMS_OUTPUT.PUT_LINE(
+      'Operador: '|| reg.nombre ||
+      ' - Orden: ' || reg.id_orden);
+
+    v_contador := v_contador + 1;
+
+  END LOOP;
+
+  IF v_contador = 0 THEN
+    DBMS_OUTPUT.PUT_LINE(
+      'Sin ordenes para este operador');
+  END IF;
+
+END listar_operadores_ordenes;
+/
+EXEC listar_operadores_ordenes (4);
+
+
+
+
+
+
+
 
 
 
